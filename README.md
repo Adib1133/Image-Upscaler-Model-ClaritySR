@@ -16,8 +16,62 @@ Local Flask web app for AI image upscaling, artifact cleanup, and face restorati
 - Python 3.10+
 - Windows, macOS, or Linux
 - NVIDIA CUDA is optional but strongly recommended for large images
+- Git LFS (for downloading model weights) – see [Installation](#installation) below
 
-## Setup
+## Installation
+
+### 1. Clone the Repository
+
+> **⚠️ Important:** This repository uses Git Large File Storage (LFS) for model weights.
+> **Do NOT download the repository as a ZIP file** – the model files will be incomplete (~1 KB pointer files instead of actual weights).
+
+#### If you have Git LFS installed:
+
+```bash
+git clone https://github.com/Adib1133/Image-Upscaler-Model-ClaritySR.git
+cd Image-Upscaler-Model-ClaritySR
+git lfs pull
+```
+
+#### If you don't have Git LFS installed:
+
+**Windows:**
+
+- Download and install Git LFS from [git-lfs.com](https://git-lfs.com)
+- Run `git lfs install` in your terminal
+- Then clone the repository as shown above
+
+**macOS:**
+
+```bash
+brew install git-lfs
+git lfs install
+git clone https://github.com/Adib1133/Image-Upscaler-Model-ClaritySR.git
+cd Image-Upscaler-Model-ClaritySR
+git lfs pull
+```
+
+**Linux (Ubuntu/Debian):**
+
+```bash
+sudo apt install git-lfs
+git lfs install
+git clone https://github.com/Adib1133/Image-Upscaler-Model-ClaritySR.git
+cd Image-Upscaler-Model-ClaritySR
+git lfs pull
+```
+
+#### Verifying the download:
+
+After cloning, check that the model files are their actual size (not ~1 KB):
+
+```bash
+ls -lh gfpgan/weights/detection_Resnet50_Final.pth
+```
+
+The file should be approximately 104 MB. If it shows ~1 KB, run `git lfs pull` again.
+
+### 2. Set Up Python Environment
 
 ```powershell
 python -m venv .venv
@@ -34,7 +88,7 @@ For CUDA, install the PyTorch build matching your driver from the official PyTor
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`.
+Open http://127.0.0.1:5000.
 
 Model weights download automatically into `.models/` on first use.
 
@@ -79,3 +133,22 @@ Ignored generated folders/files:
 - `uploads/`: source images
 - `outputs/`: processed images
 - `history.json`: local processing history
+
+## Troubleshooting
+
+**Model files are only 1 KB after cloning**
+
+This means Git LFS didn't download the actual files. Run:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+**"git: 'lfs' is not a git command"**
+
+Git LFS is not installed. Follow the installation instructions above for your operating system.
+
+**ZIP download doesn't work**
+
+GitHub ZIP downloads don't include LFS files. You must use `git clone` as described in the installation section.
