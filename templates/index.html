@@ -1,0 +1,348 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaritySR - AI Image Super-Resolution Upscaler</title>
+    <meta name="description" content="Upscale and restore low-resolution images with local AI models for photos, artwork, anime, and face restoration.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fa-solid fa-wand-magic-sparkles logo-icon"></i>
+                <h1>Clarity<span class="gradient-text">SR</span></h1>
+                <span class="badge">v1.0.0</span>
+            </div>
+            <div class="system-status-summary">
+                <div class="status-item">
+                    <span class="label">Device:</span>
+                    <span id="header-device" class="val text-glow">Detecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <main class="app-body">
+            
+            <!-- LEFT PANEL: CONTROLS -->
+            <section class="control-panel glass">
+                <h2 class="section-title"><i class="fa-solid fa-sliders"></i> Parameters</h2>
+                
+                <form id="upscale-form">
+                    <!-- File Upload Dropzone -->
+                    <div class="form-group">
+                        <label class="group-label">Input Image</label>
+                        <div class="upload-dropzone" id="dropzone">
+                            <input type="file" id="file-input" name="image" accept="image/*" style="display: none;">
+                            <div class="dropzone-content">
+                                <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                                <p class="primary-text">Drag &amp; Drop Image</p>
+                                <p class="secondary-text">or <span class="browse-link">browse files</span></p>
+                                <p class="limits-text">PNG, JPG, JPEG, WEBP up to 30 MB</p>
+                            </div>
+                            <!-- Upload Preview -->
+                            <div class="upload-preview" id="upload-preview" style="display: none;">
+                                <img id="preview-img-thumbnail" src="" alt="Thumbnail">
+                                <div class="preview-details">
+                                    <span class="preview-name" id="preview-filename">image.png</span>
+                                    <span class="preview-size" id="preview-filesize">0 KB</span>
+                                </div>
+                                <button type="button" class="remove-btn" id="remove-file-btn"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Model -->
+                    <div class="form-group">
+                        <label for="model-select" class="group-label">Upscaling AI Model</label>
+                        <div class="custom-select-wrapper">
+                            <select id="model-select" name="model">
+                                <optgroup label="Real-ESRGAN Family">
+                                    <option value="realesrgan-general" selected>Real-ESRGAN x4+ (General Photos)</option>
+                                    <option value="realesrgan-anime">Real-ESRGAN x4+ Anime (Illustrations)</option>
+                                    <option value="realesrgan-x2">Real-ESRGAN x2+ (General / 2x)</option>
+                                    <option value="realesrgan-v3">Real-ESRGAN v3 (Balanced / Fast)</option>
+                                </optgroup>
+                                <optgroup label="Classic Models">
+                                    <option value="esrgan-classic">ESRGAN Classic x4 (Sharp Textures)</option>
+                                    <option value="bsrgan-x4">BSRGAN x4 (De-blur / De-noise)</option>
+                                </optgroup>
+                                <optgroup label="Image Restoration">
+                                    <option value="gfpgan-1.4">GFPGAN v1.4 (Face & Artifact Restoration)</option>
+                                </optgroup>
+                                <optgroup label="Detail Only">
+                                    <option value="detail-enhance">1x Detail Enhance (Artifact Removal)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <p class="field-desc" id="model-desc">Real-ESRGAN produces sharp, photo-realistic upscaling on general photography and mixed content.</p>
+                    </div>
+
+                    <!-- Target Scale -->
+                    <div class="form-group" id="scale-group">
+                        <label for="scale-select" class="group-label">Target Scale Factor</label>
+                        <div class="custom-select-wrapper">
+                            <select id="scale-select" name="target_scale">
+                                <option value="1">1x (Detail Enhance Only)</option>
+                                <option value="2">2x Upscaling</option>
+                                <option value="4" selected>4x Upscaling</option>
+                                <option value="8">8x Upscaling</option>
+                            </select>
+                        </div>
+                        <p class="field-desc">Upscales the output to the selected size using high-quality Lanczos interpolation.</p>
+                    </div>
+
+                    <!-- Tiled Inference -->
+                    <div class="form-group">
+                        <label for="tile-select" class="group-label">Tiled Inference (CPU Optimization)</label>
+                        <div class="custom-select-wrapper">
+                            <select id="tile-select" name="tile_size">
+                                <option value="512" selected>Enabled (512px Tiles)</option>
+                                <option value="256">Enabled (256px Tiles - Safe CPU)</option>
+                                <option value="0">Disabled (Full Image - High RAM)</option>
+                            </select>
+                        </div>
+                        <p class="field-desc">Tiling processes images in patches and merges them to prevent memory crashes.</p>
+                    </div>
+
+                    <!-- Pre-Denoise level -->
+                    <div class="form-group">
+                        <label for="denoise-select" class="group-label">Pre-Denoise / Compression Fix</label>
+                        <div class="custom-select-wrapper">
+                            <select id="denoise-select" name="denoise">
+                                <option value="none" selected>None (Keep details raw)</option>
+                                <option value="mild">Mild (Filter slight JPEG compression)</option>
+                                <option value="medium">Medium (Smooth noisy patterns)</option>
+                                <option value="strong">Strong (Heavily smooth input noise)</option>
+                            </select>
+                        </div>
+                        <p class="field-desc">Filters jpeg artifacts and sensor noise before upscaling.</p>
+                    </div>
+
+                    <!-- Output Format -->
+                    <div class="form-group">
+                        <label for="format-select" class="group-label">Output Format</label>
+                        <div class="custom-select-wrapper">
+                            <select id="format-select" name="format">
+                                <option value="png" selected>PNG (Lossless Quality)</option>
+                                <option value="jpeg">JPEG (Optimized File Size)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons Row -->
+                    <div class="action-buttons-row">
+                        <button type="submit" class="upscale-btn" id="upscale-submit-btn" disabled>
+                            <i class="fa-solid fa-bolt"></i> Upscale Image
+                        </button>
+                        <button type="button" class="stop-btn" id="upscale-stop-btn" disabled>
+                            <i class="fa-solid fa-stop"></i> Stop
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- CENTER PANEL: WORKSPACE -->
+            <section class="workspace glass">
+                <div class="workspace-header">
+                    <h2 class="section-title"><i class="fa-solid fa-image"></i> Workspace</h2>
+                    
+                    <!-- View Mode Controls (Visible after upscaling) -->
+                    <div class="workspace-toolbar" id="workspace-toolbar" style="display: none;">
+                        <div class="toggle-group">
+                            <button class="toolbar-btn active" id="btn-view-slider" title="Comparison Slider">
+                                <i class="fa-solid fa-arrows-left-right"></i> Slider
+                            </button>
+                            <button class="toolbar-btn" id="btn-view-side" title="Side-by-Side Zoom">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i> Side-by-Side Zoom
+                            </button>
+                        </div>
+                        <a id="btn-download-active" class="download-link-btn" href="#" target="_blank" download>
+                            <i class="fa-solid fa-download"></i> Download
+                        </a>
+                        <button id="btn-clear-result" class="clear-result-btn" title="Remove upscaled result from view">
+                            <i class="fa-solid fa-xmark"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- WORKSPACE CANVAS AREA -->
+                <div class="canvas-container">
+                    
+                    <!-- Welcome Placeholder -->
+                    <div class="canvas-placeholder" id="placeholder-view">
+                        <div class="glow-sphere"></div>
+                        <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
+                        <h3>Ready to Restore</h3>
+                        <p>Upload an image to upscale, restore faces, reduce artifacts, and compare the result.</p>
+                    </div>
+
+                    <!-- Processing / Loading Overlay -->
+                    <div class="canvas-loader" id="loader-view" style="display: none;">
+                        <div class="spinner-container">
+                            <div class="double-spinner"></div>
+                            <span class="loader-percent" id="loader-percent">0%</span>
+                        </div>
+                        <h4 id="loader-title">Initializing Upscaler...</h4>
+                        <p id="loader-msg">Pre-processing input image file and loading neural network configurations.</p>
+                        
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="loader-progress-bar" style="width: 0%"></div>
+                        </div>
+
+                        <!-- Time stats row -->
+                        <div class="loader-time-row">
+                            <div class="loader-time-stat">
+                                <span class="time-label"><i class="fa-regular fa-clock"></i> Elapsed Time</span>
+                                <span class="time-val" id="loader-timer">0.0s</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Floating action buttons on viewfinder -->
+                    <div class="viewfinder-actions" id="viewfinder-actions" style="display: none;">
+                        <button class="vf-upscale-btn" id="vf-upscale-btn" title="Upscale Image">
+                            <i class="fa-solid fa-bolt"></i> Upscale
+                        </button>
+                        <button class="vf-stop-btn" id="vf-stop-btn" title="Stop" disabled>
+                            <i class="fa-solid fa-stop"></i> Stop
+                        </button>
+                    </div>
+
+                    <!-- VIEW 1: COMPARISON SLIDER -->
+                    <div class="comparison-slider-wrapper" id="slider-view" style="display: none;">
+                        <div class="comparison-slider-container">
+                            <!-- Low Resolution Image (Underneath) -->
+                            <img class="image-original" id="slider-img-orig" src="" alt="Original low-res">
+                            <div class="label-badge original-badge">Before (Low Res)</div>
+                            
+                            <!-- High Resolution Image (Overlay, clipped dynamically) -->
+                            <div class="comparison-slider-overlay" id="slider-img-upscaled-container">
+                                <img class="image-upscaled" id="slider-img-upscaled" src="" alt="Upscaled high-res">
+                                <div class="label-badge upscaled-badge">After (ClaritySR)</div>
+                            </div>
+                            
+                            <!-- Interactive Slider Bar -->
+                            <div class="slider-handle" id="slider-handle">
+                                <div class="handle-line"></div>
+                                <div class="handle-button">
+                                    <i class="fa-solid fa-arrows-left-right"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VIEW 2: SIDE-BY-SIDE ZOOM INSPECTOR -->
+                    <div class="side-by-side-wrapper" id="side-view" style="display: none;">
+                        <div class="side-container original-side">
+                            <div class="label-badge original-badge">Before</div>
+                            <div class="zoom-viewport" id="viewport-orig">
+                                <img id="zoom-img-orig" src="" alt="Original">
+                            </div>
+                        </div>
+                        <div class="side-container upscaled-side">
+                            <div class="label-badge upscaled-badge">After</div>
+                            <div class="zoom-viewport" id="viewport-upscaled">
+                                <img id="zoom-img-upscaled" src="" alt="Upscaled">
+                            </div>
+                        </div>
+                        <!-- Interactive Zoom UI overlay -->
+                        <div class="zoom-controls">
+                            <span class="zoom-label"><i class="fa-solid fa-magnifying-glass"></i> Zoom:</span>
+                            <input type="range" id="zoom-slider" min="1" max="10" step="0.5" value="2">
+                            <span class="zoom-val" id="zoom-val">2.0x</span>
+                            <span class="zoom-help">Hover &amp; pan mouse over viewports to inspect</span>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- RIGHT PANEL: QUEUE / HISTORY -->
+            <aside class="history-panel glass">
+                <h2 class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Gallery &amp; History</h2>
+                <div class="history-list" id="history-items-container">
+                    <!-- History cards injected dynamically -->
+                    <div class="history-empty">
+                        <i class="fa-regular fa-image"></i>
+                        <p>No processed images yet.</p>
+                    </div>
+                </div>
+            </aside>
+
+        </main>
+
+        <!-- FOOTER / SYSTEM TERMINAL -->
+        <footer class="app-footer glass">
+            <!-- Resource stats -->
+            <div class="system-monitor">
+                <div class="metric-gauge">
+                    <span class="metric-label">CPU LOAD</span>
+                    <div class="gauge-bar">
+                        <div class="gauge-fill" id="cpu-fill" style="width: 0%"></div>
+                    </div>
+                    <span class="metric-val" id="cpu-val">0%</span>
+                </div>
+                
+                <div class="metric-gauge">
+                    <span class="metric-label">RAM USAGE</span>
+                    <div class="gauge-bar">
+                        <div class="gauge-fill" id="ram-fill" style="width: 0%"></div>
+                    </div>
+                    <span class="metric-val" id="ram-val">0% / 0GB</span>
+                </div>
+
+                <!-- GPU gauges injected dynamically by JS -->
+                <div id="gpu-gauges-container"></div>
+                
+                <div class="metric-status">
+                    <span class="indicator green"></span>
+                    <span id="system-status-msg">Upscaler Ready</span>
+                </div>
+            </div>
+
+            <!-- Scroll log terminal -->
+            <div class="log-console-container">
+                <div class="console-header">
+                    <span><i class="fa-solid fa-terminal"></i> Execution Logs &amp; Diagnostics</span>
+                    <button class="console-clear-btn" id="btn-clear-logs" title="Clear Console"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <div class="console-body" id="console-logs">
+                    <div class="log-line system-log">[SYSTEM] initialized ClaritySR app layer.</div>
+                    <div class="log-line system-log">[SYSTEM] PyTorch loaded. Ready for input.</div>
+                </div>
+            </div>
+
+        </footer>
+    </div>
+    <!-- ERROR MODAL -->
+    <div class="modal-overlay" id="error-modal">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <i class="fa-solid fa-circle-exclamation modal-icon"></i>
+                <h3 id="modal-error-title">Inference Failure</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modal-error-message">An unexpected error occurred during processing.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-close-btn" id="btn-close-modal">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Main Script -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+
